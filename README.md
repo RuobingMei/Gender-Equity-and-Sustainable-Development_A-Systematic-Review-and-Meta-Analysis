@@ -2,4 +2,4 @@ The repository contains the data and code used in the study "Gender Equity and S
 
 This include:
 - Cleaned and formatted datasets used for meta-analysis.
-- R scripts for statistical analysis, sensitivity test, and figure generation.
+- R script for statistical analysis, sensitivity test, and figure generation.
