@@ -1,0 +1,400 @@
+---
+title: "BMC_Meta_Analysis"
+author: "Ruobing Mei"
+date: "30/06/2025"
+output: html_document
+---
+
+```{r packages}
+rm(list=ls())
+library(metafor)
+library(meta)
+library(weightr)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(maps)
+library(ggpubr)
+library(gtsummary)
+library(writexl)
+```
+
+# Section 1: RQ1 ----------------
+```{r Loading study-level data}
+fi <- read_csv("~/Desktop/BMC Public Health/Data/MetaRQ1_fi.csv")
+
+#Reclassified countries into WHO regions: African Region (AFR), Region of the Americas (AMR), South-East Asian Region (SEAR), European Region (EUR), Eastern Mediterranean Region (EMR), Western Pacific Region (WPR)
+fi <- fi %>% 
+  mutate(WHOregion = case_when(
+  ##Western Pacific Region
+  country == "Australia" | country == "China" | country == "Singapore" | country == "Republic of Korea" ~ "WPR", 
+  ##European Region
+  country == "Austria" | country == "Denmark" | country == "Finland" | country == "Italy" | country == "Sweden" | 
+    country == "Sweden, Belgium, Greece" | country == "Republic of Serbia" | country == "Turkey" | 
+    country == "UK" | country == "Ukraine" ~ "EUR",
+  ##Region of the Americas
+  country == "Brazil" |  country == "Canada" | country == "Mexico" | country == "USA" ~ "AMR",
+  ##Eastern Mediterranean Region
+  country == "Saudi Arabia" ~ "EMR"))
+
+chartofac <- c("studytype", "country", "worldregion", "recruitment", "datasource", "WHOregion")
+fi[chartofac] <- lapply(fi[chartofac], as.factor)
+fi$age <-as.numeric(fi$age)
+fi$studyperiod_start <-as.numeric(fi$studyperiod_start)
+fi$studyperiod_end <-as.numeric(fi$studyperiod_end)
+fi$mean_age <-as.numeric(fi$mean_age)
+
+
+```
+
+```{r Calculating overall summary proportion}
+# Normality test
+rate.fi <- transform(fi$proportion, p = fi$cases/fi$total)
+shapiro.test(rate.fi$p) ## the distribution does not follow normal distribution
+
+fi_ies.da = escalc(xi = cases, ni = total, measure = "PFT", data = fi, add = 0) #using Freeman-Tukey double-arcsine transformation
+fi_pes.da = rma(yi, vi, data = fi_ies.da, method = "DL", weighted = TRUE) #pooled results using random effects model with DerSimonian-Laird estimator
+fi_pes = predict(fi_pes.da, transf = transf.ipft.hm, targ = list(ni = fi$total)) #inverse of double-arcsine transformation
+#print(fi_pes.da, digits = 4)
+#confint(fi_pes.da, digits = 2)
+print(fi_pes,digits = 5);print(fi_pes.da,digits = 4);confint(fi_pes.da,digits= 2)
+
+# Meta analysis for whole data with metafor, not assuming a common variance component
+fi.pes.summary <- metaprop(cases, total, study, data = fi, sm = "PFT", method.tau = "DL", method.ci = "NAsm")
+```
+
+```{r Finding potential outliers with residuals}
+stud.res = rstudent(fi_pes.da) 
+abs.z = abs(stud.res$z)
+stud.res[order(-abs.z)] 
+
+#Baujat plot
+baujat <- baujat(fi_pes.da)
+
+```
+
+
+```{r Leave-one-out analysis}
+L1O <- leave1out(fi_pes.da)
+yi <- L1O$estimate; vi <- L1O$se^2
+
+forest(yi, vi, transf = transf.ipft.hm, targ = list(ni = fi$total),
+       slab = paste(fi$author, fi$year, sep = ","),
+       refline = fi_pes$pred,
+       xlab = "Summary proportions leaving out each study",
+       digits = 4)
+
+inf <- influence(fi_pes.da)
+dev.off()
+print(inf); plot(inf)
+
+```
+
+```{r Meta-analysis and forest plot}
+fi_updated <- fi
+fi.pes.summary <- metaprop(cases, total, study, data = fi_updated, sm = "PFT", method.tau = "DL", method.ci = "NAsm")
+
+forest(fi.pes.summary,
+       #rightcols = c("effect", "ci", "w.random"),
+       #rightlabs = c("Proportion", "95% C.I.", "Weights"),
+       rightcols = FALSE,
+       leftcols = c("studlab", "event", "n", "effect", "ci", "w.random"),
+       leftlabs = c("Study", "Cases", "Total", "Proportion", "95% C.I.", "Weights"),
+       xlab = "Proportion of women with higher education who intend not to have children", smlab = "",
+       weight.study = "random", squaresize = 0.5, col.square = "black",
+       col.square.lines = "black",
+       col.diamond = "darkred", col.diamond.lines = "darkred",
+       pooled.totals = FALSE,
+       comb.fixed = FALSE,
+       fs.hetstat = 10,
+       print.tau2 = TRUE,
+       print.Q = TRUE,
+       print.pval.Q = TRUE,
+       print.I2 = TRUE,
+       digits = 2, digits.I2 = 2,
+       common = FALSE)
+
+rm(list = setdiff(ls(), c("fi", "fi_updated", "fi.pes.summary")))
+```
+
+```{r Loading country-level data}
+# Incorporate secondary country-level data
+country_chara <- read_csv("~/Desktop/BMC Public Health/Data/MetaRQ1_country.csv")
+
+# Merge two datasets
+fi_country_chara <- left_join(fi_updated, country_chara, by = "paperid")
+
+fi_country_chara <- fi_country_chara %>% 
+  select(paperid, author.x, year.x, study, cases, total, proportion, studytype, country.x, recruitment, studyperiod_start.x, studyperiod_end.x, datasource, mean_age, age_group, WHOregion, paid_mater_leave, paid_pater_leave, paid_shared_parent_leave, income_classifi) %>%
+  rename(
+    author = author.x,
+    year = year.x,
+    country = country.x,
+    study_period_start = studyperiod_start.x,
+    study_period_end = studyperiod_end.x) %>% 
+  mutate(income_classifi = case_when(
+    income_classifi == "Upper-middle-income countries" | income_classifi == "Lower-middle-income countries" ~ "Lower- or Upper-middile-income countries",
+    income_classifi == "High-income countries" ~ "High-income countries")) %>% 
+  mutate(leave_policy = case_when(
+    paid_mater_leave == 0 & paid_pater_leave == 0 & paid_shared_parent_leave == 0 ~ "No leave scheme",
+    paid_mater_leave == 0 & paid_pater_leave == 0 & paid_shared_parent_leave != 0 ~ "Parental leave only",
+    paid_mater_leave == 0 & paid_pater_leave != 0 & paid_shared_parent_leave == 0 ~ "Paternity leave only",
+    paid_mater_leave == 0 & paid_pater_leave != 0 & paid_shared_parent_leave != 0 ~ "Paternity and parental leave, without maternity leave",
+    paid_mater_leave != 0 & paid_pater_leave == 0 & paid_shared_parent_leave == 0 ~ "Maternity leave only",
+    paid_mater_leave != 0 & paid_pater_leave == 0 & paid_shared_parent_leave != 0 ~ "Maternity and parental leave, without paternity leave",
+    paid_mater_leave != 0 & paid_pater_leave != 0 & paid_shared_parent_leave == 0 ~ "Maternity and paternity leave, without parental leave",
+    paid_mater_leave != 0 & paid_pater_leave != 0 & paid_shared_parent_leave != 0 ~ "All leave schemes")) %>%
+  mutate(sample_size = case_when(
+    total < 200 ~ "Below 200",
+    total >= 200 & total <= 500 ~ "200-500",
+    total > 500  ~ "Above 500"
+  )) %>% 
+   mutate(age_group = case_when(
+    age_group == 1 ~ "Below 25",
+    age_group == 2 ~ "25 and above"
+  )) %>% 
+  mutate(
+    study_year = case_when(
+      is.na(study_period_start) ~ "Not Specify",
+      study_period_start < 2005 ~ "Before 2005",
+      study_period_start >= 2005 & study_period_start <= 2014 ~ "2005-2014",
+      study_period_start >= 2015 & study_period_start <= 2018 ~ "2015-2018",
+      study_period_start >= 2019 ~ "2019 and after"))
+```
+
+
+
+```{r subgroup analyses}
+##Subgroup by study location: WHOregion (study location)
+fi.meta.WHOregion <- metaprop(cases, total, data = fi_country_chara, studlab = fi_country_chara$study,
+                    sm = "PFT",
+                    method.tau = "DL",
+                    method.ci = "NAsm",
+                    subgroup = WHOregion,
+                    overall = T
+                    )
+
+##Subgroup: income classification
+fi.meta.income_classifi <- metaprop(cases, total, data = fi_country_chara, studlab = fi_country_chara$study,
+                    sm = "PFT",
+                    method.tau = "DL",
+                    method.ci = "NAsm",
+                    subgroup = income_classifi,
+                    overall = T
+                    )
+##Subgroup: study year (first year of data collection)
+fi.meta.study_year <- metaprop(cases, total, data = fi_country_chara, studlab = fi_country_chara$study,
+                    sm = "PFT",
+                    method.tau = "DL",
+                    method.ci = "NAsm",
+                    subgroup = study_year,
+                    overall = T,
+                    method.predict = "HK"
+                    )
+
+##Subgroup: recruitment settings
+fi.meta.study_recruitment <- metaprop(cases, total, data = fi_country_chara, studlab = fi_country_chara$study,
+                    sm = "PFT",
+                    method.tau = "DL",
+                    method.ci = "NAsm",
+                    subgroup = recruitment,
+                    overall = T
+                    )
+
+##Subgroup: study type
+fi.meta.study_studytype<- metaprop(cases, total, data = fi_country_chara, studlab = fi_country_chara$study,
+                    sm = "PFT",
+                    method.tau = "DL",
+                    method.ci = "NAsm",
+                    subgroup = studytype,
+                    overall = T
+                    )
+
+##Subgroup: sample size
+fi.meta.sample_size <- metaprop(cases, total, data = fi_country_chara, studlab = fi_country_chara$study,
+                    sm = "PFT",
+                    method.tau = "DL",
+                    method.ci = "NAsm",
+                    subgroup = sample_size,
+                    overall = T
+                    )
+
+##Subgroup: leave policy
+fi.meta.leave_policy <- metaprop(cases, total, data = fi_country_chara, studlab = fi_country_chara$study,
+                    sm = "PFT",
+                    method.tau = "DL",
+                    method.ci = "NAsm",
+                    subgroup = leave_policy,
+                    overall = T
+                    )
+
+##Subgroup: age group
+fi.meta.age_group <- metaprop(cases, total, data = fi_country_chara, studlab = fi_country_chara$study,
+                    sm = "PFT",
+                    method.tau = "DL",
+                    method.ci = "NAsm",
+                    subgroup = age_group,
+                    overall = T
+                    )
+
+
+```
+
+
+```{r Meta-regression}
+# Remove the study contain multiple countries with different leave policies
+fi.pes.summary_updated <- metaprop(cases, total, study, data = fi_country_chara, sm = "PFT", method.tau = "DL", method.ci = "NAsm")
+
+# Univariate meta-regression
+metareg_u1 <- metareg(fi.pes.summary_updated, ~WHOregion)
+metareg_u2 <- metareg(fi.pes.summary_updated, ~income_classifi)
+metareg_u3 <- metareg(fi.pes.summary_updated, ~study_year)
+metareg_u4 <- metareg(fi.pes.summary_updated, ~age_group)
+metareg_u5 <- metareg(fi.pes.summary_updated, ~recruitment)
+metareg_u6 <- metareg(fi.pes.summary_updated, ~studytype)
+metareg_u7 <- metareg(fi.pes.summary_updated, ~sample_size)
+metareg_u8 <- metareg(fi.pes.summary_updated, ~leave_policy)
+
+# Multivariate meta-regression
+metareg_m3 <- metareg(fi.pes.summary_updated,~WHOregion+income_classifi+study_year+age_group+recruitment+studytype+sample_size+leave_policy)
+metareg_m3
+
+```
+
+```{r Publication bias}
+##Funnel plot
+funnel.meta(fi.pes.summary, xlab = "Effect size", xlim = c(0.1, 0.55))
+
+##Egger's test
+egger <- metabias(fi.pes.summary, method.bias = "linreg")
+conf_interval <- 0.3389 + c(-1, 1) * 1.96 * 0.0605
+conf_interval
+```
+# Section 2: RQ2 ----------------
+```{r RQ2: Conditions for parenthood, Loading data}
+Con1 <- read_csv("~/Desktop/BMC Public Health/Data/MetaRQ2C1.csv")
+Con2 <- read_csv("~/Desktop/BMC Public Health/Data/MetaRQ2C2.csv")
+Con3 <- read_csv("~/Desktop/BMC Public Health/Data/MetaRQ2C3.csv")
+Con4 <- read_csv("~/Desktop/BMC Public Health/Data/MetaRQ2C4.csv")
+Con5 <- read_csv("~/Desktop/BMC Public Health/Data/MetaRQ2C5.csv")
+Con6 <- read_csv("~/Desktop/BMC Public Health/Data/MetaRQ2C6.csv")
+Con7 <- read_csv("~/Desktop/BMC Public Health/Data/MetaRQ2C7.csv")
+Con8 <- read_csv("~/Desktop/BMC Public Health/Data/MetaRQ2C8.csv")
+Con9 <- read_csv("~/Desktop/BMC Public Health/Data/MetaRQ2C9.csv")
+Con10 <- read_csv("~/Desktop/BMC Public Health/Data/MetaRQ2C10.csv")
+Con11 <- read_csv("~/Desktop/BMC Public Health/Data/MetaRQ2C11.csv")
+Con12 <- read_csv("~/Desktop/BMC Public Health/Data/MetaRQ2C12.csv")
+Con13 <- read_csv("~/Desktop/BMC Public Health/Data/MetaRQ2C13.csv")
+
+```
+
+```{r Calculating pooled proportion for conditions for motherhood}
+##Condition 1: That I have a partner with whom I can share the responsibility
+iesC1 <- escalc(xi = cases, ni = total, data = Con1, measure = "PFT")
+pesC1.da <- rma(yi, vi, data = iesC1, method = "DL")
+pesC1 <- predict(pesC1.da, transf = transf.ipft.hm, targ = list(ni = Con1$total)) #convert the DA transformation back
+print(pesC1)
+
+##Condition 2: That I live in a stable relationship
+iesC2 <- escalc(xi = cases, ni = total, data = Con2, measure = "PFT")
+pesC2.da <- rma(yi, vi, data = iesC2, method = "DL")
+pesC2 <- predict(pesC2.da, transf = transf.ipft.hm, targ = list(ni = Con2$total)) #convert the DA transformation back
+print(pesC2)
+
+##Condition 3: That I feel sufficiently mature
+iesC3 <- escalc(xi = cases, ni = total, data = Con3, measure = "PFT")
+pesC3.da <- rma(yi, vi, data = iesC3, method = "DL")
+pesC3 <- predict(pesC3.da, transf = transf.ipft.hm, targ = list(ni = Con3$total)) #convert the DA transformation back
+print(pesC3)
+
+##Condition 4: That my work can be combined with having children
+iesC4 <- escalc(xi = cases, ni = total, data = Con4, measure = "PFT")
+pesC4.da <- rma(yi, vi, data = iesC4, method = "DL")
+pesC4 <- predict(pesC4.da, transf = transf.ipft.hm, targ = list(ni = Con4$total)) #convert the DA transformation back
+print(pesC4)
+
+##Condition 5: That I have completed my studies
+iesC5 <- escalc(xi = cases, ni = total, data = Con5, measure = "PFT")
+pesC5.da <- rma(yi, vi, data = iesC5, method = "DL")
+pesC5 <- predict(pesC5.da, transf = transf.ipft.hm, targ = list(ni = Con5$total)) #convert the DA transformation back
+print(pesC5)
+
+##Condition 6: That I want to have children before I am ‘too old’
+iesC6 <- escalc(xi = cases, ni = total, data = Con6, measure = "PFT")
+pesC6.da <- rma(yi, vi, data = iesC6, method = "DL")
+pesC6 <- predict(pesC6.da, transf = transf.ipft.hm, targ = list(ni = Con6$total)) #convert the DA transformation back
+print(pesC6)
+
+##Condition 7: That I/we have a good economy
+iesC7 <- escalc(xi = cases, ni = total, data = Con7, measure = "PFT")
+pesC7.da <- rma(yi, vi, data = iesC7, method = "DL")
+pesC7 <- predict(pesC7.da, transf = transf.ipft.hm, targ = list(ni = Con7$total)) #convert the DA transformation back
+print(pesC7)
+
+##Condition 8: That I/we have a home that is sufficiently large
+iesC8 <- escalc(xi = cases, ni = total, data = Con8, measure = "PFT")
+pesC8.da <- rma(yi, vi, data = iesC8, method = "DL")
+pesC8 <- predict(pesC8.da, transf = transf.ipft.hm, targ = list(ni = Con8$total)) #convert the DA transformation back
+print(pesC8)
+
+##Condition 9: That I have had time to travel and do other things that may be difficult to do with children
+iesC9 <- escalc(xi = cases, ni = total, data = Con9, measure = "PFT")
+pesC9.da <- rma(yi, vi, data = iesC9, method = "DL")
+pesC9 <- predict(pesC9.da, transf = transf.ipft.hm, targ = list(ni = Con9$total)) #convert the DA transformation back
+print(pesC9)
+
+##Condition 10: That I have a permanent position
+iesC10 <- escalc(xi = cases, ni = total, data = Con10, measure = "PFT")
+pesC10.da <- rma(yi, vi, data = iesC10, method = "DL")
+pesC10 <- predict(pesC10.da, transf = transf.ipft.hm, targ = list(ni = Con10$total)) #convert the DA transformation back
+print(pesC10)
+
+##Condition 11: That I have advanced in my profession
+iesC11 <- escalc(xi = cases, ni = total, data = Con11, measure = "PFT")
+pesC11.da <- rma(yi, vi, data = iesC11, method = "DL")
+pesC11 <- predict(pesC11.da, transf = transf.ipft.hm, targ = list(ni = Con11$total)) #convert the DA transformation back
+print(pesC11)
+
+##Condition 12: That I have access to childcare
+iesC12 <- escalc(xi = cases, ni = total, data = Con12, measure = "PFT")
+pesC12.da <- rma(yi, vi, data = iesC12, method = "DL")
+pesC12 <- predict(pesC12.da, transf = transf.ipft.hm, targ = list(ni = Con12$total)) #convert the DA transformation back
+print(pesC12)
+
+##Condition 13: That my friends have had children or are expecting children
+iesC13 <- escalc(xi = cases, ni = total, data = Con13, measure = "PFT")
+pesC13.da <- rma(yi, vi, data = iesC13, method = "DL")
+pesC13 <- predict(pesC13.da, transf = transf.ipft.hm, targ = list(ni = Con13$total)) #convert the DA transformation back
+print(pesC13)
+```
+```{r Combining the summary proportions and CIs for visualisation}
+SumCon <- rbind(pesC1, pesC2, pesC3, pesC4, pesC5, pesC6, pesC7, pesC8, pesC9, pesC10, pesC11, pesC12, pesC13)
+
+SumCon.df <- as.data.frame(SumCon) %>% 
+  dplyr::select(pred, ci.lb, ci.ub) %>% 
+  mutate(condition = row.names(SumCon))
+
+SumCon.df$condition <- as.factor(SumCon.df$condition)
+SumCon.df$pred <- as.numeric(SumCon.df$pred)
+SumCon.df$ci.lb <- as.numeric(SumCon.df$ci.lb)
+SumCon.df$ci.ub <- as.numeric(SumCon.df$ci.ub)
+```
+
+```{r RQ2 visualisation}
+ggplot(data = SumCon.df, mapping = aes(x = reorder(condition, pred), y = pred, fill = condition)) +
+  #geom_bar(stat = "identity", width = 0.6) +
+  geom_pointrange(aes(ymin = ci.lb, ymax = ci.ub, color = condition), linewidth = 0.3, position = position_dodge(width = 0.5)) +
+  #geom_errorbar(aes(ymin = ci.lb, ymax = ci.ub), width = 0.35, linewidth = 0.3, color = "darkgrey") +
+  #ggtitle("Summary proportion of perceived conditions for decisions to become a parent") +
+  geom_text(aes(label = percent(pred, accuracy = 0.01, color = condition)), hjust = 0.4, vjust = -1.2, color = "Black", size = 2) +
+  xlab("Perceived conditions for motherhood") +
+  ylab("Percentage") +
+  scale_x_discrete(
+    limits = c("pesC1", "pesC2", "pesC3", "pesC4", "pesC5", "pesC6", "pesC7", "pesC8", "pesC9", "pesC10", "pesC11", "pesC12", "pesC13"),
+    labels = c("That I have a partner with whom I can share the responsibility", "That I live in a stable relationship", "That I feel sufficiently mature", "That my work can be combined with having children", "That I have completed my studies", "That I want to have children before I am ‘too old’", "That I/we have a good economy", "That I/we have a home that is sufficiently large", "That I have had time to travel and do other things that may be difficult to do with children", "That I have a permanent position", "That I have advanced in my profession", "That I have access to childcare", "That my friends have had children or are expecting children")) +
+  theme_minimal() +
+  theme(legend.position = "none", panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(linewidth  = 0.3)) +
+  coord_flip()
+
+```

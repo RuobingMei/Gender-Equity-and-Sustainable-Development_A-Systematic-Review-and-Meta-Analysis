@@ -1,0 +1,28 @@
+﻿paperid,author,year,study,cases,total,proportion,language,studytype,country,worldregion,recruitment,studyperiod_start,studyperiod_end,datasource,mean_age,age,age_group
+25,Berrington,2014,Berrington 2014,48,571,8.40%,English,cohort/longitudinal,UK,Europe,multi-centre,1981,1981,interview,23,at age 23,1
+33,Chan,2015,Chan 2015,55,275,20.00%,English,cross-sectional,China,Asia,school,2013,2013,survey,23.2,"mean age: 23.2 (3.5), range: 30 and below",1
+41,Delbaere,2021,Delbaere 2021,16,389,4.30%,English,cross-sectional,"Sweden, Belgium, Greece",Europe,school,2017,2018,survey,25,median age: 23-25,1
+66,Hickman,2018,Hickman 2018,117,501,23.40%,English,cross-sectional,USA,North America,school,-,-,survey,,range:20-45 (63% above 25),2
+78,Lampic,2006,Lampic 2006,8,200,4.00%,English,cross-sectional,Sweden,Europe,school,2004,2004,survey,23.9,"mean age: 23.9(4.1), range: 20-41",1
+83,Lee,2021,Lee 2021,284,563,50.44%,English,cross-sectional,Republic of Korea,Asia,school,2018,2018,survey,20.8,mean age: 20.8±2.3,1
+106,Nouri,2014,Nouri 2014,10,170,5.90%,English,case-control,Austria,Europe,school,2012,2012,survey,,18-25,1
+109,Ozerdogan,2018,Ozerdogan 2018,1,262,0.38%,English,cross-sectional,Turkey,Asia,school,2015,2015,survey,22.69,"mean age: 22.69 ±2.01, range: 19-37",1
+114,Peterson,2012,Peterson 2012,22,138,15.94%,English,cross-sectional,USA,North America,school,,-,survey,20.3,mean age: 20.3 (2.0),1
+117,Place,2020,Place 2020,106,203,52.22%,English,cross-sectional,Mexico,North America,school,2017,2018,survey,22.7,mean age: 22.7 (4.8),1
+121,Prior,2019,Prior 2019,71,930,7.63%,English,cross-sectional,Australia,Oceania,school,2017,2017,survey,21.9,mean age: 21.9 (3.4),1
+135,Shin,2020,Shin 2020,26,85,30.59%,English,cross-sectional,Republic of Korea,Asia,school,2019,2019,survey,22.3,"mean age: 22.3±1.7, range: 18-30",1
+137,Skoog Svanberg,2006,Skoog Svanberg 2006,6,106,6.00%,English,cross-sectional,Sweden ,Europe,school,2004,2004,survey,29,range :18-40 (98% above 25),2
+141,Sørensen,2016,Sørensen 2016,12,366,3.28%,English,cross-sectional,Denmark,Europe,school,2016,2016,survey,24.2,mean age: 24.2 (5.1),1
+146,Tan,2011,Tan 2011,36,122,29.51%,English,cross-sectional,Singapore,Asia,household,-,-,survey,30.7,mean age: 30.7; range: 16-40,2
+149,Tydén,2006,Tydén 2006,8,300,2.67%,English,cross-sectional,Sweden,Europe,school,2004,2004,survey,23,"mean age: 23, range: 19–37",1
+153,Virtala,2011,Virtala 2011,176,2980,5.91%,English,cross-sectional,Finland,Europe,school,2008,2008,survey,23.9,mean age: 23.9,1
+155,Vujčić,2017,Vujčić 2017,13,269,4.83%,English,cross-sectional,Republic of Serbia,Europe,school,2016,2016,survey,22.5,"mean age: 22.5 ± 1.4, range: 20-37",1
+161,Xu,2022,Xu 2022,128,379,33.77%,English,cross-sectional,China,Asia,school,2020,2020,survey,20.21,mean age: 20.21 ± 3.66; range: >=18,1
+168,Zhang,2022,Zhang 2022,749,4025,18.60%,English,cross-sectional,China,Asia,school,2021,2021,survey,20.3,mean age: 20.3 ± 1.9; range: 15–24 ,1
+174,Rosina,2009,Rosina 2009,43,214,20.19%,English,cross-sectional,Italy,Europe,household,2003,2003,survey,,range: 18-44 (80% above 25),2
+183,Araujo,2020,Araujo 2020,20,153,13.07%,English,cross-sectional,Brazil,South America,school,2019,2019,survey,,65.65% above 30,2
+186,Barron,2022,Barron 2022,163,2146,7.60%,English,cross-sectional,USA,North America,school,-,-,survey,23,"mean age: 23 (4.5), range: 17-54(60.5% below 23)",1
+191,Bretherick,2010,Bretherick 2010,40,360,11.10%,English,cross-sectional,Canada,North America,school,2006,2006,survey,21.28,"mean age: 21.28 (2.81), range: 18-42",1
+197,Cheung,2019,Cheung 2019,6,120,5.00%,English,cross-sectional,Australia,Oceania,multi-centre,2016,2016,survey,22.8,mean age: 22.8 (4.4),1
+220,Mogilevkina,2016,Mogilevkina 2016,138,858,16.08%,English,cross-sectional,Ukraine,Asia,school,2012,2012,survey,20.5,mean age: 20.5 (2.6),1
+226,Rovei,2010,Rovei 2010,0,607,0.00%,English,cross-sectional,Italy,Europe,school,2006,2007,survey,22.1,"mean age: 22.1, range 19-37",1
